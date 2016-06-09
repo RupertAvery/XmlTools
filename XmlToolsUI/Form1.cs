@@ -1,6 +1,9 @@
 ﻿using System;
 using System.IO;
+using System.IO.Compression;
+using System.Text;
 using System.Windows.Forms;
+using Ionic.Zip;
 using XmlTools;
 using XmlToolsUI.Properties;
 
@@ -13,12 +16,16 @@ namespace XmlToolsUI
             InitializeComponent();
         }
 
+
         private void buttonBrowseSource_Click(object sender, EventArgs e)
         {
+            openFileDialog1.FileName = "";
             openFileDialog1.Filter = "All Files|*.*";
-            openFileDialog1.ShowDialog();
-            textBoxSource.Text = openFileDialog1.FileName;
-            textBoxDestination.Text = Path.Combine(Path.GetDirectoryName(openFileDialog1.FileName), Path.GetFileNameWithoutExtension(openFileDialog1.FileName));
+            if (openFileDialog1.ShowDialog() == DialogResult.OK)
+            {
+                textBoxSource.Text = openFileDialog1.FileName;
+                textBoxDestination.Text = Path.Combine(Path.GetDirectoryName(openFileDialog1.FileName), Path.GetFileNameWithoutExtension(openFileDialog1.FileName));
+            }
         }
 
         private void buttonBrowseDestination_Click(object sender, EventArgs e)
@@ -55,7 +62,11 @@ namespace XmlToolsUI
             }
             try
             {
-                System.IO.Compression.ZipFile.CreateFromDirectory(textBoxDestination.Text, target);
+                using (var newzip = new ZipFile())
+                {
+                    newzip.AddDirectory(textBoxDestination.Text, "");
+                    newzip.Save(target);
+                }
                 MessageBox.Show($"Saved to '{target}'", Resources.Form1_DoExtract_XmlTools_UI, MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception)
@@ -95,7 +106,11 @@ namespace XmlToolsUI
 
             try
             {
-                System.IO.Compression.ZipFile.ExtractToDirectory(textBoxSource.Text, textBoxDestination.Text);
+                using (var zip = ZipFile.Read(textBoxSource.Text))
+                {
+                    zip.ExtractAll(textBoxDestination.Text, ExtractExistingFileAction.OverwriteSilently);
+                }
+
                 processor.ProcessFolder(textBoxDestination.Text, "*.xml");
                 MessageBox.Show($"Extracted to '{textBoxDestination.Text}'", Resources.Form1_DoExtract_XmlTools_UI, MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
 
@@ -109,14 +124,19 @@ namespace XmlToolsUI
 
         private void textBoxSource_TextChanged(object sender, EventArgs e)
         {
-            buttonExtract.Enabled = textBoxSource.Text.Length > 1 && textBoxDestination.Text.Length > 1;
-            buttonRebuild.Enabled = textBoxSource.Text.Length > 1 && textBoxDestination.Text.Length > 1;
+            ToggleButtons();
         }
 
         private void textBoxDestination_TextChanged(object sender, EventArgs e)
         {
-            buttonExtract.Enabled = textBoxSource.Text.Length > 1 && textBoxDestination.Text.Length > 1;
-            buttonRebuild.Enabled = textBoxSource.Text.Length > 1 && textBoxDestination.Text.Length > 1;
+            ToggleButtons();
+        }
+
+        private void ToggleButtons()
+        {
+            var enabled = textBoxSource.Text.Length > 1 && textBoxDestination.Text.Length > 1;
+            buttonExtract.Enabled = enabled;
+            buttonRebuild.Enabled = enabled;
         }
     }
 }
